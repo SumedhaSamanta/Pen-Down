@@ -25,8 +25,8 @@ namespace PenDown
         protected void LoginBtn_Click(object sender, EventArgs e)
         {
             string username = string.Empty;
-            string email = Email.Text;
-            string password = Password.Text;
+            string email = Email.Text.Trim();
+            string password = Password.Text.Trim();
             string isValid = IsValidCredentials();
             if(isValid=="true")
             {

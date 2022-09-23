@@ -47,8 +47,8 @@ namespace PenDown
                         XmlAttribute email = xmlDocument.CreateAttribute("Email");
                         XmlAttribute password = xmlDocument.CreateAttribute("Password");
 
-                        userName.Value = Name.Text;
-                        email.Value = Email.Text;
+                        userName.Value = Name.Text.Trim();
+                        email.Value = Email.Text.Trim();
                         password.Value = encryptedPassword;
 
                         xmlDocument.AppendChild(xmlDeclaration);
@@ -143,9 +143,10 @@ namespace PenDown
         //encrypt password
         protected string Encrypt()
         {
+            string password = Password.Text.Trim();
             string encrypted = string.Empty;
-            byte[] encode = new byte[Password.Text.ToString().Length];
-            encode = Encoding.UTF8.GetBytes(Password.Text);
+            byte[] encode = new byte[password.Length];
+            encode = Encoding.UTF8.GetBytes(password);
             encrypted = Convert.ToBase64String(encode);
             return encrypted;
         }

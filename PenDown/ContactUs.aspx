@@ -19,8 +19,7 @@
         <nav class="navbar sticky-top">
             <div class="container-fluid">
                 <p class="navbar-brand">
-                    <img src="Images\Ink Pen.png" alt="Page Icon" width="30" height="30"
-                        class="d-inline-block align-text-top">
+                    <a href="Index.aspx"><img src="Images\Ink Pen.png" alt="Page Icon" width="30" height="30" class="d-inline-block align-text-top"></a>
                     Pen Down
                 </p>
                 <ul class="nav justify-content-end">
