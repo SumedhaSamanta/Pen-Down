@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
@@ -13,6 +16,7 @@ namespace PenDown
 {
     public partial class Index : System.Web.UI.Page
     {
+        string strConn = ConfigurationManager.ConnectionStrings["con"].ConnectionString;
         protected void Page_Load(object sender, EventArgs e)
         {
             if (Request.QueryString["action"] != null)
@@ -25,57 +29,60 @@ namespace PenDown
         protected void LoginBtn_Click(object sender, EventArgs e)
         {
             string username = string.Empty;
-            string email = Email.Text;
-            string password = Password.Text;
+            string email = Email.Text.Trim();
+            string password = Password.Text.Trim();
             string isValid = IsValidCredentials();
-            if(isValid=="true")
+            if (isValid == "true")
             {
-
-                //Credential Check
+                SqlConnection conn = new SqlConnection(strConn);
                 try
                 {
-                    string XmlPath = string.Empty;
-                    XmlPath = Server.MapPath("~/XMLFiles/") + "UsersInfo.xml";
-                    XmlDocument xmlDocument = new XmlDocument();
+                    if (conn.State == System.Data.ConnectionState.Closed)
+                    {
+                        conn.Open();
+                    }
 
-                    if (!File.Exists(XmlPath))
+                    //check if email is not registered
+                    SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM [dbo].[user] WHERE email='" + email + "'", conn);
+                    int temp = Convert.ToInt32(cmd.ExecuteScalar().ToString());
+                    if (temp == 0)
                     {
                         ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", "alert('No such user exists. Register first.'); window.location = 'Register.aspx';", true);
                         return;
                     }
                     else
                     {
-                        xmlDocument.Load(@XmlPath);
-                        XmlNodeList nodeList = xmlDocument.SelectNodes("//UsersList/User[@Email='" + email + "']");
-                        //if no such email exists
-                        if (nodeList.Count == 0)
+                        SqlCommand sqlCommand = new SqlCommand("SELECT * FROM [dbo].[user] WHERE email='" + email + "'", conn);
+                        SqlDataReader reader = sqlCommand.ExecuteReader();
+                        while (reader.Read())
                         {
-                            ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", "alert('No such user exists. Register first.'); window.location = 'Register.aspx';", true);
-                            return;
-                        }
-                        else
-                        {
-                            XmlNode xmlNode = nodeList[0];
-                            string correctPassword = Decrypt(xmlNode.Attributes["Password"].Value);
+                            username = reader["user_name"].ToString();
+                            string correctPassword = Decrypt(reader["password"].ToString());
                             //if password does not match
                             if (!string.Equals(correctPassword, password))
                             {
                                 ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", "alert('Incorrect password')", true);
                                 return;
                             }
-                            //else redirect to Welcome page
-                            username = xmlNode.Attributes["Name"].Value;
-                            Session["Username"] = username;
-                            Response.Redirect("LoginSuccess.aspx");
+                            else
+                            {
+                                //else redirect to Welcome page
+                                Session["Username"] = username;
+                                Response.Redirect("LoginSuccess.aspx");
+                            }
                         }
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     string exc = ex.Message;
                     string alertMsg = "alert('We are sorry, please try again after some time. " + exc + "')";
-                    ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage",alertMsg, true);
+                    ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", alertMsg, true);
                     return;
+                }
+                finally
+                {
+                    conn.Close();
                 }
             }
             else

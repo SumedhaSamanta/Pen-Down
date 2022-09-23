@@ -10,6 +10,7 @@ using System.Xml.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Configuration;
+using System.Data.SqlClient;
 
 namespace PenDown
 {
@@ -28,70 +29,42 @@ namespace PenDown
 
             if (isValid == "true")
             {
-                //save the new user's data
                 string encryptedPassword = Encrypt();
+                SqlConnection conn = new SqlConnection(strConn);
                 try
-                {
-                    string XmlPath = string.Empty;
-                    XmlPath = Server.MapPath("~/XMLFiles/") + "UsersInfo.xml";
-
-                    XmlDocument xmlDocument = new XmlDocument();
-
-                    if (!File.Exists(XmlPath))
+                {                    
+                    if(conn.State== System.Data.ConnectionState.Closed)
                     {
-                        //create the XML file if it does not exist
-                        XmlDeclaration xmlDeclaration = xmlDocument.CreateXmlDeclaration("1.0", "UTF-8", "yes");
-                        XmlElement root = xmlDocument.CreateElement("UsersList");
-                        XmlElement parent = xmlDocument.CreateElement("User");
-                        XmlAttribute userName = xmlDocument.CreateAttribute("Name");
-                        XmlAttribute email = xmlDocument.CreateAttribute("Email");
-                        XmlAttribute password = xmlDocument.CreateAttribute("Password");
-
-                        userName.Value = Name.Text;
-                        email.Value = Email.Text;
-                        password.Value = encryptedPassword;
-
-                        xmlDocument.AppendChild(xmlDeclaration);
-                        xmlDocument.AppendChild(root);
-                        root.AppendChild(parent);
-                        parent.Attributes.Append(userName);
-                        parent.Attributes.Append(email);
-                        parent.Attributes.Append(password);
-                        xmlDocument.Save(XmlPath);
+                        conn.Open();
                     }
-                    else
+
+                    //check if email is already registered
+                    SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM [dbo].[user] WHERE email='"+ Email.Text + "'", conn);
+                    int temp = Convert.ToInt32(cmd.ExecuteScalar().ToString());
+                    if (temp == 1)
                     {
-                        xmlDocument.Load(XmlPath);
-                        XmlElement root = xmlDocument.DocumentElement;
-
-                        //if email id is already registered
-                        XmlNodeList nodeList = xmlDocument.SelectNodes("/UsersList/User[@Email='" + Email.Text + "']");
-                        if (nodeList.Count > 0)
-                        {
-                            ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", "alert('Email is already registered with us! Please Login.'); window.location = 'Index.aspx';", true);
-                            return;
-                        }
-
-                        XmlElement parent = xmlDocument.CreateElement("User");
-                        XmlAttribute userName = xmlDocument.CreateAttribute("Name");
-                        XmlAttribute email = xmlDocument.CreateAttribute("Email");
-                        XmlAttribute password = xmlDocument.CreateAttribute("Password");
-
-                        userName.Value = Name.Text;
-                        email.Value = Email.Text;
-                        password.Value = encryptedPassword;
-
-                        root.AppendChild(parent);
-                        parent.Attributes.Append(userName);
-                        parent.Attributes.Append(email);
-                        parent.Attributes.Append(password);
-                        xmlDocument.Save(XmlPath);
+                        ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", "alert('Email is already registered with us! Please Login.'); window.location = 'Index.aspx';", true);
+                        return;
                     }
+                    
+                    SqlCommand sqlCommand = new SqlCommand("INSERT INTO [dbo].[user] (user_name, email, password) VALUES(@username, @email, @password)", conn);
+                    sqlCommand.Parameters.AddWithValue("@username", Name.Text.Trim());
+                    sqlCommand.Parameters.AddWithValue("@email", Email.Text.Trim());
+                    sqlCommand.Parameters.AddWithValue("@password", encryptedPassword);
+
+                    int rows = sqlCommand.ExecuteNonQuery();
                     Response.Redirect("RegistrationSuccess.aspx");
                 }
-                catch
+                catch(Exception ex)
                 {
-                    ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", "alert('We're sorry, please try again after some time')", true);
+                    string exc = ex.Message;
+                    string alertMsg = "alert('We are sorry, please try again after some time. " + exc + "')";
+                    ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "alertMessage", alertMsg, true);
+                    return;
+                }
+                finally
+                {
+                    conn.Close();
                 }
             }
             else
@@ -143,9 +116,10 @@ namespace PenDown
         //encrypt password
         protected string Encrypt()
         {
+            string password = Password.Text.ToString().Trim();
             string encrypted = string.Empty;
-            byte[] encode = new byte[Password.Text.ToString().Length];
-            encode = Encoding.UTF8.GetBytes(Password.Text);
+            byte[] encode = new byte[password.Length];
+            encode = Encoding.UTF8.GetBytes(password);
             encrypted = Convert.ToBase64String(encode);
             return encrypted;
         }
